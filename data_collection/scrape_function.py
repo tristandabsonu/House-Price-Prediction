@@ -5,34 +5,43 @@ from datetime import datetime
 
 
 def get_variable_data(data, keys, variable, default=None):
+    '''
+    Traverses through a list of keys to ensure the path exists
+    '''
     for key in keys:
         if isinstance(data, dict):
+            # Traverses through each key
             data = data.get(key)
         else:
             return default
-    return data[variable]
+        
+    if isinstance(data, dict):
+        # Checks if final traversal is not None
+        return data.get(variable)
+    # Returns default value if nothing is found
+    return default
 
 
 def school_data(data):
     primary, primaryDistance, primaryType = None, None, None
     secondary, secondaryDistance, secondaryType = None, None, None
+    if data:
+        for item in data:
+            # Check for primary school
+            if primary is None and item.get('educationLevel', '').lower() == 'primary':
+                primary = item.get('name')
+                primaryDistance = item.get('distance')
+                primaryType = item.get('type')
 
-    for item in data:
-        # Check for primary school
-        if primary is None and item.get('educationLevel', '').lower() == 'primary':
-            primary = item.get('name')
-            primaryDistance = item.get('distance')
-            primaryType = item.get('type')
+            # Check for secondary school
+            if secondary is None and item.get('educationLevel', '').lower() == 'secondary':
+                secondary = item.get('name')
+                secondaryDistance = item.get('distance')
+                secondaryType = item.get('type')
 
-        # Check for secondary school
-        if secondary is None and item.get('educationLevel', '').lower() == 'secondary':
-            secondary = item.get('name')
-            secondaryDistance = item.get('distance')
-            secondaryType = item.get('type')
-
-        # Stop early if both are found
-        if primary and secondary:
-            break
+            # Stop early if both are found
+            if primary and secondary:
+                break
 
     return primary, primaryDistance, primaryType, secondary, secondaryDistance, secondaryType
 
@@ -55,11 +64,11 @@ def get_page_data(data):
     hasDescription = get_variable_data(data, property_keys,'hasDescription')
     parking = get_variable_data(data, property_keys,'parking')
     photoCount = get_variable_data(data, property_keys,'photoCount')
+    propertyTypes = get_variable_data(data, property_keys,'primaryPropertyType')
     # variables from traversing to 'listingByIdV2'
     listingByIdV2_keys = ['componentProps','rootGraphQuery','listingByIdV2']
     features = get_variable_data(data, listingByIdV2_keys,'features')
     promoLevel = get_variable_data(data, listingByIdV2_keys,'promoLevel')
-    propertyTypes = get_variable_data(data, listingByIdV2_keys,'propertyTypes')
     isRural = get_variable_data(data, listingByIdV2_keys,'isRural')
     landAreaSqm = get_variable_data(data, listingByIdV2_keys,'landAreaSqm')
     # variables from traversing to 'displayableAddress'
@@ -87,13 +96,18 @@ def get_page_data(data):
     # sold date
     soldDate_keys = ['componentProps','rootGraphQuery','listingByIdV2','soldDetails','soldDate']
     isoDate = get_variable_data(data, soldDate_keys, 'isoDate')
-    dt = datetime.strptime(isoDate, "%Y-%m-%dT%H:%M:%S")
-    soldYear = dt.year
-    soldMonth = dt.month
+    if isoDate:
+        dt = datetime.strptime(isoDate, "%Y-%m-%dT%H:%M:%S")
+        soldYear = dt.year
+        soldMonth = dt.month
+    else:
+        soldYear = None
+        soldMonth = None
     # target variable
     target_keys = ['componentProps','rootGraphQuery','listingByIdV2','soldDetails','soldPrice','rawValues']
     soldPrice = get_variable_data(data, target_keys, 'exactPrice')
 
+    # returning variables in the correct order
     return [listingId,unitNumber,streetNumber,street,suburbName,state,postcode,bathrooms,bedrooms,parking,landAreaSqm,
             latitude,longitude,features,agency,propertyTypes,promoLevel,soldMonth,soldYear,daysListed,inspectionsCount,
             isRural,hasDescription,hasFloorplan,hasDisplayPrice,hasPhoto,photoCount,suburb_medianPrice,

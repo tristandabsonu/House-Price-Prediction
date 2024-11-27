@@ -1,9 +1,14 @@
-import pandas as pd
+from gevent import monkey
+monkey.patch_all()  # Applying monkey patching
+
 from bs4 import BeautifulSoup
 import requests
+import grequests
 import json
+from tqdm import tqdm
 import time
 import random
+import pandas as pd
 
 
 headers = {
@@ -11,15 +16,14 @@ headers = {
 }
 
 
-path1 = f'/Users/tristangarcia/Desktop/hp-pred_data/postcode/'
-path2 = f'/Users/tristangarcia/Desktop/hp-pred_data/url/'
+path_in = f'/Users/tristangarcia/Desktop/hp-pred_data/postcode/'
+path_out = f'/Users/tristangarcia/Desktop/hp-pred_data/url/'
 
 
 # Parsing __NEXT_DATA__ from html to JSON format
-def parse_data(url):
-    result = requests.get(url, headers=headers)
+def parse_data(response):
     # Parsing html content
-    soup = BeautifulSoup(result.content, "html.parser")
+    soup = BeautifulSoup(response.content, "html.parser")
     # Finding the information from the script
     script = soup.find('script', id='__NEXT_DATA__', type='application/json')
     # Loading data to JSON format
@@ -28,69 +32,84 @@ def parse_data(url):
     return data
 
 
-def get_urls_for_postcode(postcode):
-    rows = []
-    page_num = 1    # Always starting with 1
-    while True:
-        # Searching through each postcode for URL's for the listings
-        url = f'https://www.domain.com.au/sold-listings/?postcode={postcode}&excludepricewithheld=1&ssubs=0&page={page_num}'
-        data = parse_data(url)
-        data = data.get('props',{}).get('pageProps',{}).get('componentProps')
+def request_data(urls):
+    # Asynchronously makes requests for a list of urls
+    requests = [grequests.get(url, headers=headers) for url in urls]
+    responses  = grequests.map(requests)
+    return responses
 
-        if not data:
-            break
 
-        totalPages = data.get('totalPages')    # totalPages to know when to stop the search
+def get_state_postcodes(state):
+    # Each state has a csv full of it's postcodes and suburbs
+    s = pd.read_csv(f'{path_in}{state}_postcodes.csv')
+    postcodes = s['postcode']
+    return postcodes
+
+
+def get_postcode_urls(postcode):
+    # Searching through each postcode for URL's for the listings
+    url = 'https://www.domain.com.au/sold-listings/?postcode={}&excludepricewithheld=1&ssubs=0&page={}'
+    response = requests.get(url.format(postcode,1), headers=headers)
+    data = parse_data(response)
+    data = data.get('props',{}).get('pageProps',{}).get('componentProps')
+
+    if data:
+        totalPages = data.get('totalPages')    # totalPages to know when to know how many urls per postcode
+        if totalPages > 0:
+            postcode_urls = [url.format(postcode,page_num) for page_num in range(1,totalPages+1)]
+            return postcode_urls
+        else:
+            # postcodes with no listings have totalPages == 0
+            return []
+    return []
+
+
+def get_listings(data,postcode):
+    listing_list = []
+    data = data.get('props',{}).get('pageProps',{}).get('componentProps')
+    if data:
         all_listings = data.get('listingsMap')
         for listing in all_listings.keys():
             # Each page has a listingsMap whose keys contain the urls for each listing 
-            rows.append((all_listings[listing].get('listingModel',{}).get('url'), postcode))
-
-        # Checks that we haven't gone past the total pages
-        if page_num >= totalPages:
-            break
-        page_num += 1
-
-        # Pausing the program every 2 requests
-        if (page_num%2) == 0:
-            # Sleeping for a random interval between each page search to imitate human behaviour
-            time.sleep(random.randint(2,4))
-        
-    return rows
+            # Returning a tuple of (listing, postcode)
+            listing_list.append((all_listings[listing].get('listingModel',{}).get('url'), postcode))
+        # returning a list of urls from all listings on a page
+        return listing_list
 
 
 def main():
     # List of Australian states
     states = ['WA','NSW','VIC','QLD','SA','TAS','ACT','NT']
-
     for state in states:
-        rows = []
-        # Each state has a csv full of it's postcodes and suburbs
-        s = pd.read_csv(f'{path1}{state}_postcodes.csv')
-        postcodes = s['postcode']
-
+        state_listings = []
+        postcodes = get_state_postcodes(state)
         # Getting urls for each postcode
-        for postcode in postcodes:
+        for postcode in tqdm(postcodes):
             # Add 0's infront of postcode to make the length equal to 4
             if len(str(postcode)) < 4:
                 # '0' * (4 -  len(str(postcode))) determines the number of 0's to add
                 postcode = f'{"0"*(4 - len(str(postcode)))}{postcode}'
-            listings = get_urls_for_postcode(postcode)
-            # Recording postcodes with empty listings
-            if len(listings) == 0:
-                print(f'Empty Postcode: {postcode}')
-                with open('empty_postcodes.txt', 'a') as file:
+            # List to contain all the listings for a postcode
+            postcode_listings = []
+            urls = get_postcode_urls(postcode)
+            if len(urls) > 0:
+                responses = request_data(urls)
+                data = [parse_data(r) for r in responses]
+                for d in data:
+                    listing_list = get_listings(d,postcode)
+                    postcode_listings.extend(listing_list)
+                state_listings.extend(postcode_listings)
+                print(f'{postcode} completed')
+                time.sleep(random.randint(1,3))
+            else:
+                with open('empty_postcodes.txt','a') as file:
                     file.write(f'{postcode}\n')
-            # Adding to the rows or urls
-            rows.extend(listings)
-            # Printing to see progress
-            print(len(rows), postcode)
-            
+
         # Writing to a new csv file
-        rows_df = pd.DataFrame(rows, columns=['url','postcode'])
-        rows_df.to_csv(f'{path2}{state}_urls.csv', index=False, header=True)
+        state_df = pd.DataFrame(state_listings, columns=['url','postcode'])
+        state_df.to_csv(f'{path_out}{state.lower()}_urls.csv', index=False, header=True)
         # Printing to see progress
-        print(f'Finished writing all {state} urls')
+        print(f'Finished writing all {state} listing')
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ path = '/Users/tristangarcia/Desktop/hp-pred_data/'
 postcodes = pd.read_csv(f'{path}australian_postcodes.csv')
 
 def get_postcodes(state):
+    
     s = postcodes.loc[postcodes['state'] == state, ['postcode','locality','state']].drop_duplicates(subset='postcode',keep='first')
     s.to_csv(f'{path}{state}_postcodes.csv', index=False, header=True)
 
