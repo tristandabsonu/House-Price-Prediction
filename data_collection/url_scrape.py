@@ -1,5 +1,6 @@
+# I was getting errors before doing this?? I think requests and grequests was clashing
 from gevent import monkey
-monkey.patch_all()  # Applying monkey patching
+monkey.patch_all()  # Applying "monkey patching"
 
 from bs4 import BeautifulSoup
 import requests

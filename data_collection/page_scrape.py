@@ -6,6 +6,7 @@ import scrape_function as scp
 from tqdm import tqdm
 import random
 import time
+import os
 
 
 headers = {
@@ -18,58 +19,108 @@ col_names = ['listingId','unitNumber','streetNumber','street','suburb','state','
             'suburb_medianRentPrice','suburb_entryLevelPrice','suburb_luxuryLevelPrice','primary','primaryDistance','primaryType',
             'secondary','secondaryDistance','secondaryType','listingUrl','soldPrice']
 
+# Base URL
 BASE = 'https://www.domain.com.au{}'
+# File paths
 path_in = f'/Users/tristangarcia/Desktop/hp-pred_data/url/'
 path_out = f'/Users/tristangarcia/Desktop/hp-pred_data/data/'
 
 
+def remove_file(state):
+    output_path = f'{path_out}{state.lower()}_data.csv'
+    # Remove file if it exists
+    if os.path.exists(output_path):
+        os.remove(output_path)
+        print(f'Existing file {output_path} removed.')
+
+
 def get_urls(state):
+    # Open state csv as a pandas df
     df = pd.read_csv(f'{path_in}{state}_urls.csv')
+    # Accessing the url column (containing the slugs (suffix of a url) of each listing)
     slugs = df['url']
+    # Converts slugs into full urls
     urls = [BASE.format(slug) for slug in slugs]
     return urls
 
 
 def get_data(urls, batch_size=100):
+    '''
+    Sending requests for a batch of links 
+    Pausing program between each batch to avoid rate limiting
+    '''
+    # List to contain all responses for listings in a state
     all_responses = []
+    # Goes through all urls from a state in batches
     for i in tqdm(range(0,len(urls),batch_size)):
         batch = urls[i:i+batch_size]
+        # Asynchronous requests for faster processing
         requests = [grequests.get(link, headers=headers) for link in batch]
         responses  = grequests.map(requests)
+        # If any errors with requests, None response will be returned
         if None in responses:
+            # Save all errors in a log
             with open('url_errors.txt', 'a') as file:
-                print(f'Error in batch {i//batch_size+1}')
-                file.write(f'Batch {i // batch_size+1}')
+                file.write(f'Batch {i // batch_size+1}\n')
                 file.write('\n'.join(batch) + '\n')
         else:
+                # If successful, batch of responses is added to all_responses
                 all_responses.extend(responses)
-                print(f'Batch {i//batch_size+1} completed')
-        time.sleep(random.randint(2,4))
+        # Sleeping at random # of seconds between 1-3 to imitate human behaviour
+        time.sleep(random.randint(1,3))
+
 
     return all_responses
 
 
 def parse_data(responses):
+    # List to contain all rows for a df for house data for a state
     all_rows = []
-    for resp in responses:
+    # Parses every responses synchronously
+    for resp in tqdm(responses):
         soup = BeautifulSoup(resp.content, "html.parser")
         script = soup.find('script', id='__NEXT_DATA__', type='application/json')
         data = json.loads(script.text.strip())
+        # First two key traversal should always be available 
         page = data.get('props',{}).get('pageProps',{})
+        # Ensures there is data to be scraped
         if page.get('layoutProps') and page.get('componentProps'):
-            row = scp.get_page_data(data)
+            # Function from scrape_function.py to find all data relevant to a listing
+            row = scp.get_page_data(page)
             all_rows.append(row)
-            print(row)
 
     return all_rows
         
 
 def main():
-    urls = get_urls('WA')
-    responses = get_data(urls)
-    df_rows = parse_data(responses)
-    state_data = pd.DataFrame(df_rows, columns=col_names)
-    state_data.to_csv(f'{path_out}WA_data.csv', index=False, header=True)
+    # WA finished
+    states = ['NSW','VIC','QLD','SA','TAS','ACT','NT']
+    for state in states:
+        # Removing file if it exists
+        remove_file(state)
+        print(f'\nWebscraping {state}...')
+        # Reading url data
+        urls = get_urls(state)
+        # Process data in chunks
+        batch_size = 100    # Adjust batch size for memory efficiency
+        for i in range(0, len(urls), batch_size):
+            print(f'Processing batch {i // batch_size + 1}...')
+            batch_urls = urls[i:i + batch_size]
+            # Sending requests for the batch
+            responses = get_data(batch_urls, batch_size=batch_size)
+            print(responses)
+            # Parsing all responses
+            print('Parsing responses...')
+            df_rows = parse_data(responses)
+            # Converting list of rows to a DataFrame
+            batch_data = pd.DataFrame(df_rows, columns=col_names)
+            # Writing data to CSV incrementally
+            write_mode = 'a' if i > 0 else 'w'
+            header = i == 0    # Only include header for the first batch
+            batch_data.to_csv(f'{path_out}{state.lower()}_data.csv', mode=write_mode, index=False, header=header)
+            print(f'Batch {i // batch_size + 1} saved.')
+
+        print(f'{state} data collected successfully!')
 
 
 if __name__ == '__main__':
