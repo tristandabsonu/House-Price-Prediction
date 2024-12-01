@@ -44,7 +44,7 @@ def get_urls(state):
     return urls
 
 
-def get_data(urls, batch_size=100):
+def get_data(urls, resp_batch_size=100):
     '''
     Sending requests for a batch of links 
     Pausing program between each batch to avoid rate limiting
@@ -52,23 +52,22 @@ def get_data(urls, batch_size=100):
     # List to contain all responses for listings in a state
     all_responses = []
     # Goes through all urls from a state in batches
-    for i in tqdm(range(0,len(urls),batch_size)):
-        batch = urls[i:i+batch_size]
+    for i in tqdm(range(0,len(urls),resp_batch_size)):
+        batch = urls[i:i+resp_batch_size]
         # Asynchronous requests for faster processing
         requests = [grequests.get(link, headers=headers) for link in batch]
         responses  = grequests.map(requests)
         # If any errors with requests, None response will be returned
-        if None in responses:
+        if any(resp and resp.status_code == 430 for resp in responses):
             # Save all errors in a log
             with open('url_errors.txt', 'a') as file:
-                file.write(f'Batch {i // batch_size+1}\n')
+                file.write(f'Batch {i // resp_batch_size+1}\n')
                 file.write('\n'.join(batch) + '\n')
         else:
                 # If successful, batch of responses is added to all_responses
                 all_responses.extend(responses)
         # Sleeping at random # of seconds between 1-3 to imitate human behaviour
         time.sleep(random.randint(1,3))
-
 
     return all_responses
 
@@ -93,34 +92,45 @@ def parse_data(responses):
         
 
 def main():
-    # WA finished
-    states = ['NSW','VIC','QLD','SA','TAS','ACT','NT']
+    # WA, NSW, VIC finished
+    states = ['QLD','SA','TAS','ACT','NT']
     for state in states:
-        # Removing file if it exists
-        remove_file(state)
-        print(f'\nWebscraping {state}...')
-        # Reading url data
-        urls = get_urls(state)
-        # Process data in chunks
-        batch_size = 100    # Adjust batch size for memory efficiency
-        for i in range(0, len(urls), batch_size):
-            print(f'Processing batch {i // batch_size + 1}...')
-            batch_urls = urls[i:i + batch_size]
-            # Sending requests for the batch
-            responses = get_data(batch_urls, batch_size=batch_size)
-            print(responses)
-            # Parsing all responses
-            print('Parsing responses...')
-            df_rows = parse_data(responses)
-            # Converting list of rows to a DataFrame
-            batch_data = pd.DataFrame(df_rows, columns=col_names)
-            # Writing data to CSV incrementally
-            write_mode = 'a' if i > 0 else 'w'
-            header = i == 0    # Only include header for the first batch
-            batch_data.to_csv(f'{path_out}{state.lower()}_data.csv', mode=write_mode, index=False, header=header)
-            print(f'Batch {i // batch_size + 1} saved.')
+        #choice = input(f'Are you sure you want to rewrite {state.lower()}_data.csv? (y/n) ')
+        choice = 'y'
+        if choice.lower() == 'y':
+            # Removing file if it exists
+            #remove_file(state)
+            
+            print(f'\nWebscraping {state}...')
+            # Reading url data
+            urls = get_urls(state)
+            print(f'Number of urls: {len(urls)}')
+            # Process data in chunks (avoids memory overload on a single list)
+            url_batch_size = 10000    # Adjust batch size for memory efficiency
+            print(f'Number of batches: {len(urls)//url_batch_size + 1}\n')
+            for i in range(50000, len(urls), url_batch_size):
+                start_time = time.time()
+                print(f'Requesting batch {i // url_batch_size + 1} urls...')
+                batch_urls = urls[i:i + url_batch_size]
+                # Sending requests for the batch
+                responses = get_data(batch_urls)
+                # Parsing all responses
+                print('Parsing responses...')
+                df_rows = parse_data(responses)
+                # Converting list of rows to a DataFrame
+                batch_data = pd.DataFrame(df_rows, columns=col_names)
+                # Writing data to CSV incrementally
+                write_mode = 'a' if i > 0 else 'w'
+                header = i == 0    # Only include header for the first batch
+                batch_data.to_csv(f'{path_out}{state.lower()}_data.csv', mode=write_mode, index=False, header=header)
+                print(f'Batch {i // url_batch_size + 1} saved.')
+                print(f'---- {round(time.time() - start_time, 2)} seconds ----\n')
 
-        print(f'{state} data collected successfully!')
+            print(f'{state} data collected successfully!\n')
+        elif choice == 'n':
+            print(f'{state.lower()}_data.csv not removed!\n')
+        else:
+            continue
 
 
 if __name__ == '__main__':
