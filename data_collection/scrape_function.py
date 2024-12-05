@@ -27,14 +27,15 @@ def school_data(data):
     secondary, secondaryDistance, secondaryType = None, None, None
     if data:
         for item in data:
+            educationLevel = item.get('educationLevel', '').lower()
             # Check for primary school
-            if primary is None and item.get('educationLevel', '').lower() == 'primary':
+            if primary is None and (educationLevel == 'primary' or educationLevel == 'combined'):
                 primary = item.get('name')
                 primaryDistance = item.get('distance')
                 primaryType = item.get('type')
 
             # Check for secondary school
-            if secondary is None and item.get('educationLevel', '').lower() == 'secondary':
+            if secondary is None and (educationLevel == 'secondary' or educationLevel == 'combined'):
                 secondary = item.get('name')
                 secondaryDistance = item.get('distance')
                 secondaryType = item.get('type')
