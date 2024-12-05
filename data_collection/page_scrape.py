@@ -92,14 +92,13 @@ def parse_data(responses):
         
 
 def main():
-    # WA, NSW, VIC finished
-    states = ['QLD','SA','TAS','ACT','NT']
+    # 'WA', 'NSW', 'VIC', 'SA','TAS','ACT','NT'
+    states = ['WA', 'NSW', 'VIC', 'SA','TAS','ACT','NT']
     for state in states:
-        #choice = input(f'Are you sure you want to rewrite {state.lower()}_data.csv? (y/n) ')
-        choice = 'y'
+        choice = input(f'Are you sure you want to rewrite {state.lower()}_data.csv? (y/n) ')
         if choice.lower() == 'y':
             # Removing file if it exists
-            #remove_file(state)
+            remove_file(state)
             
             print(f'\nWebscraping {state}...')
             # Reading url data
@@ -108,7 +107,7 @@ def main():
             # Process data in chunks (avoids memory overload on a single list)
             url_batch_size = 10000    # Adjust batch size for memory efficiency
             print(f'Number of batches: {len(urls)//url_batch_size + 1}\n')
-            for i in range(50000, len(urls), url_batch_size):
+            for i in range(0, len(urls), url_batch_size):
                 start_time = time.time()
                 print(f'Requesting batch {i // url_batch_size + 1} urls...')
                 batch_urls = urls[i:i + url_batch_size]
