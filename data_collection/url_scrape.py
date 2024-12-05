@@ -1,4 +1,12 @@
-# I was getting errors before doing this?? I think requests and grequests was clashing
+'''
+Logic:
+- Search property listings for each postcode in each state
+- Each postcode search will have a total number of pages (0 if no listings found or max 50), extract total pages
+- Asynchronously request all pages for the postcode
+- Parse responses and extract slugs (url suffix) for each listing in each page (max 20 listings per page)
+'''
+
+# I was getting errors before doing this?? I think requests and grequests was clashing, but I need to use them both
 from gevent import monkey
 monkey.patch_all()  # Applying "monkey patching"
 
@@ -49,7 +57,8 @@ def get_state_postcodes(state):
 
 def get_postcode_urls(postcode):
     # Searching through each postcode for URL's for the listings
-    url = 'https://www.domain.com.au/sold-listings/?postcode={}&excludepricewithheld=1&ssubs=0&page={}'
+    # Base URL is long because filters applied for property types:  'ptype=apartment-unit-flat,duplex,free-standing,pent-house,semi-detached,studio,terrace,villa'
+    url = 'https://www.domain.com.au/sold-listings/?postcode={}&page={}&ptype=apartment-unit-flat,duplex,free-standing,pent-house,semi-detached,studio,terrace,villa&excludepricewithheld=1&ssubs=0'
     response = requests.get(url.format(postcode,1), headers=headers)
     data = parse_data(response)
     data = data.get('props',{}).get('pageProps',{}).get('componentProps')
@@ -80,10 +89,13 @@ def get_listings(data,postcode):
 
 def main():
     # List of Australian states
+    # 'WA', 'NSW' finished
     states = ['WA','NSW','VIC','QLD','SA','TAS','ACT','NT']
     for state in states:
+        print(f'Processing: {state}')
         state_listings = []
         postcodes = get_state_postcodes(state)
+
         # Getting urls for each postcode
         for postcode in tqdm(postcodes):
             # Add 0's infront of postcode to make the length equal to 4
@@ -100,7 +112,6 @@ def main():
                     listing_list = get_listings(d,postcode)
                     postcode_listings.extend(listing_list)
                 state_listings.extend(postcode_listings)
-                print(f'{postcode} completed')
                 time.sleep(random.randint(1,3))
             else:
                 with open('empty_postcodes.txt','a') as file:
