@@ -25,7 +25,7 @@ headers = {
 }
 
 
-path_in = f'/Users/tristangarcia/Desktop/hp-pred_data/postcode/'
+path_in = f'/Users/tristangarcia/Desktop/hp-pred_data/suburbs/statistics/'
 path_out = f'/Users/tristangarcia/Desktop/hp-pred_data/url/'
 
 
@@ -50,7 +50,7 @@ def request_data(urls):
 
 def get_state_postcodes(state):
     # Each state has a csv full of it's postcodes and suburbs
-    s = pd.read_csv(f'{path_in}{state}_postcodes.csv')
+    s = pd.read_csv(f'{path_in}{state}_statistics.csv')
     postcodes = s['postcode']
     return postcodes
 
