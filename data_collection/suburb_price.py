@@ -8,7 +8,6 @@ import requests
 import json
 import csv
 import time
-import random
 import pandas as pd
 
 
@@ -18,14 +17,14 @@ HEADERS = {
 
 BASE_URL = 'https://www.domain.com.au/suburb-profile/{}-{}-{}'
 
-path_in = '/Users/tristangarcia/Desktop/hp-pred_data/'
-path_out = '/Users/tristangarcia/Desktop/hp-pred_data/suburbs/prices/'
+# Adjust path depending on the state you are scraping
+path = '/Users/tristangarcia/Desktop/hp-pred/data/'
 
 
 def get_state_suburbs(state):
     # Loads australian postcodes data 
     # https://www.matthewproctor.com/australian_postcodes
-    df = pd.read_csv(f'{path_in}australian_postcodes.csv')
+    df = pd.read_csv(f'{path}australian_postcodes.csv')
     # Filters by state
     df = df.loc[df['state']==state]
     # Removes duplicates
@@ -34,7 +33,8 @@ def get_state_suburbs(state):
 
 
 def get_html_data(url):
-    max_retries = 5  # Maximum number of retries
+    max_retries = 5 
+    # Retries the request if None was found
     for _ in range(max_retries):
         try:
             resp = requests.get(url, headers=HEADERS, timeout=10)
@@ -76,7 +76,7 @@ def main():
     for state in states:
         suburbs = get_state_suburbs(state)
         # Writing new suburb file (overwriting if it exists)
-        with open(f'{path_out}{state.lower()}_prices.csv', 'w', newline='') as file:
+        with open(f'{path}{state.lower()}_suburb_prices.csv', 'w', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(['suburb','state','postcode','bedrooms','propertyType','medianSoldPrice',
                              'medianRentPrice','entryLevelPrice','luxuryLevelPrice','avgDaysListed'])
@@ -95,7 +95,7 @@ def main():
                     new_row = suburb + category_stats
                     print(new_row)   # Printing to check progress
                     # Appending new row to csv if statistics exist
-                    with open(f'{path_out}{state.lower()}_prices.csv','a') as file:
+                    with open(f'{path}{state.lower()}_suburb_prices.csv','a') as file:
                         writer = csv.writer(file)
                         writer.writerow(new_row)
             

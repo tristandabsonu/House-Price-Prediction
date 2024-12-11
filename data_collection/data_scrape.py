@@ -22,12 +22,11 @@ col_names = ['listingId','unitNumber','streetNumber','street','suburb','state','
 # Base URL
 BASE = 'https://www.domain.com.au{}'
 # File paths
-path_in = f'/Users/tristangarcia/Desktop/hp-pred_data/url/'
-path_out = f'/Users/tristangarcia/Desktop/hp-pred_data/data/'
+path = f'/Users/tristangarcia/Desktop/hp-pred/data/wa/'
 
 
 def remove_file(state):
-    output_path = f'{path_out}{state.lower()}_data.csv'
+    output_path = f'{path}{state.lower()}_data.csv'
     # Remove file if it exists
     if os.path.exists(output_path):
         os.remove(output_path)
@@ -36,7 +35,7 @@ def remove_file(state):
 
 def get_urls(state):
     # Open state csv as a pandas df
-    df = pd.read_csv(f'{path_in}{state}_urls.csv')
+    df = pd.read_csv(f'{path}{state.lower()}_listing_urls.csv')
     # Accessing the url column (containing the slugs (suffix of a url) of each listing)
     slugs = df['url']
     # Converts slugs into full urls
@@ -93,43 +92,37 @@ def parse_data(responses):
 
 def main():
     # 'WA', 'NSW', 'VIC', 'SA','TAS','ACT','NT'
-    states = ['WA', 'NSW', 'VIC', 'SA','TAS','ACT','NT']
+    states = ['WA']
     for state in states:
-        choice = input(f'Are you sure you want to rewrite {state.lower()}_data.csv? (y/n) ')
-        if choice.lower() == 'y':
-            # Removing file if it exists
-            remove_file(state)
-            
-            print(f'\nWebscraping {state}...')
-            # Reading url data
-            urls = get_urls(state)
-            print(f'Number of urls: {len(urls)}')
-            # Process data in chunks (avoids memory overload on a single list)
-            url_batch_size = 10000    # Adjust batch size for memory efficiency
-            print(f'Number of batches: {len(urls)//url_batch_size + 1}\n')
-            for i in range(0, len(urls), url_batch_size):
-                start_time = time.time()
-                print(f'Requesting batch {i // url_batch_size + 1} urls...')
-                batch_urls = urls[i:i + url_batch_size]
-                # Sending requests for the batch
-                responses = get_data(batch_urls)
-                # Parsing all responses
-                print('Parsing responses...')
-                df_rows = parse_data(responses)
-                # Converting list of rows to a DataFrame
-                batch_data = pd.DataFrame(df_rows, columns=col_names)
-                # Writing data to CSV incrementally
-                write_mode = 'a' if i > 0 else 'w'
-                header = i == 0    # Only include header for the first batch
-                batch_data.to_csv(f'{path_out}{state.lower()}_data.csv', mode=write_mode, index=False, header=header)
-                print(f'Batch {i // url_batch_size + 1} saved.')
-                print(f'---- {round(time.time() - start_time, 2)} seconds ----\n')
+        # Removing file if it exists
+        remove_file(state)
+        
+        print(f'\nWebscraping {state}...')
+        # Reading url data
+        urls = get_urls(state)
+        print(f'Number of urls: {len(urls)}')
+        # Process data in chunks (avoids memory overload on a single list)
+        url_batch_size = 10000    # Adjust batch size for memory efficiency
+        print(f'Number of batches: {len(urls)//url_batch_size + 1}\n')
+        for i in range(0, len(urls), url_batch_size):
+            start_time = time.time()
+            print(f'Requesting batch {i // url_batch_size + 1} urls...')
+            batch_urls = urls[i:i + url_batch_size]
+            # Sending requests for the batch
+            responses = get_data(batch_urls)
+            # Parsing all responses
+            print('Parsing responses...')
+            df_rows = parse_data(responses)
+            # Converting list of rows to a DataFrame
+            batch_data = pd.DataFrame(df_rows, columns=col_names)
+            # Writing data to CSV incrementally
+            write_mode = 'a' if i > 0 else 'w'
+            header = i == 0    # Only include header for the first batch
+            batch_data.to_csv(f'{path}{state.lower()}_data.csv', mode=write_mode, index=False, header=header)
+            print(f'Batch {i // url_batch_size + 1} saved.')
+            print(f'---- {round(time.time() - start_time, 2)} seconds ----\n')
 
-            print(f'{state} data collected successfully!\n')
-        elif choice == 'n':
-            print(f'{state.lower()}_data.csv not removed!\n')
-        else:
-            continue
+        print(f'{state} data collected successfully!\n')
 
 
 if __name__ == '__main__':

@@ -25,8 +25,9 @@ headers = {
 }
 
 
-path_in = f'/Users/tristangarcia/Desktop/hp-pred_data/suburbs/statistics/'
-path_out = f'/Users/tristangarcia/Desktop/hp-pred_data/url/'
+# Adjust path depending on the state you are scraping
+path_in = f'/Users/tristangarcia/Desktop/hp-pred/data/'
+path_out = f'/Users/tristangarcia/Desktop/hp-pred/data/wa/'
 
 
 # Parsing __NEXT_DATA__ from html to JSON format
@@ -50,7 +51,7 @@ def request_data(urls):
 
 def get_state_postcodes(state):
     # Each state has a csv full of it's postcodes and suburbs
-    s = pd.read_csv(f'{path_in}{state}_statistics.csv')
+    s = pd.read_csv(f'{path_in}{state.lower()}_suburb_statistics.csv')
     postcodes = s['postcode']
     return postcodes
 
@@ -89,8 +90,8 @@ def get_listings(data,postcode):
 
 def main():
     # List of Australian states
-    # 'WA', 'NSW' finished
-    states = ['WA','NSW','VIC','QLD','SA','TAS','ACT','NT']
+    # 'WA','NSW','VIC','QLD','SA','TAS','ACT','NT'
+    states = ['WA']
     for state in states:
         print(f'Processing: {state}')
         state_listings = []
@@ -113,13 +114,10 @@ def main():
                     postcode_listings.extend(listing_list)
                 state_listings.extend(postcode_listings)
                 time.sleep(random.randint(1,3))
-            else:
-                with open('empty_postcodes.txt','a') as file:
-                    file.write(f'{postcode}\n')
 
         # Writing to a new csv file
         state_df = pd.DataFrame(state_listings, columns=['url','postcode'])
-        state_df.to_csv(f'{path_out}{state.lower()}_urls.csv', index=False, header=True)
+        state_df.to_csv(f'{path_out}{state.lower()}_listing_urls.csv', index=False, header=True)
         # Printing to see progress
         print(f'Finished writing all {state} listing')
 
