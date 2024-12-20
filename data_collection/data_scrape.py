@@ -37,7 +37,7 @@ def get_urls(state):
     # Open state csv as a pandas df
     df = pd.read_csv(f'{path}{state.lower()}_listing_urls.csv')
     # Accessing the url column (containing the slugs (suffix of a url) of each listing)
-    slugs = df['url']
+    slugs = df['url'].unique()
     # Converts slugs into full urls
     urls = [BASE.format(slug) for slug in slugs]
     return urls

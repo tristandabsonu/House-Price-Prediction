@@ -14,9 +14,13 @@ path = '/Users/tristangarcia/Desktop/hp-pred/data/wa/'
 
 def format_address(house):
     parts = []
-    # Check and append if street, suburb, and postcode are present
-    if pd.notnull(house['street']):
+    # Check for street and street number, append if both are present
+    if pd.notnull(house['street']) and pd.notnull(house['street_number']):
+        parts.append(f'{house["street_number"]} {house["street"]}')
+    elif pd.notnull(house['street']):
         parts.append(house['street'])
+    
+    # Check and append if suburb and postcode are present
     if pd.notnull(house['suburb']):
         parts.append(house['suburb'])
     if pd.notnull(house['postcode']):

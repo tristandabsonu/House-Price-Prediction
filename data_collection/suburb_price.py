@@ -9,6 +9,7 @@ import json
 import csv
 import time
 import pandas as pd
+from tqdm import tqdm
 
 
 HEADERS = {
@@ -71,8 +72,8 @@ def get_suburb_statistics(category):
 
 
 def main():
-    #'WA' finished
-    states = ['NSW','VIC','QLD','SA','ACT','NT','TAS']
+    #'NSW','VIC','QLD','SA','ACT','NT','TAS'
+    states = ['WA']
     for state in states:
         suburbs = get_state_suburbs(state)
         # Writing new suburb file (overwriting if it exists)
@@ -82,7 +83,7 @@ def main():
                              'medianRentPrice','entryLevelPrice','luxuryLevelPrice','avgDaysListed'])
 
         # Iterates through each suburb
-        for index,row in suburbs.iterrows():
+        for index,row in tqdm(suburbs.iterrows(), total=suburbs.shape[0]):
             suburb = [row['locality'].lower(), row['state'].lower(),row['postcode']]
             # Requesting and parsing html
             url = BASE_URL.format(row['locality'].lower().replace(' ', '-'), row['state'].lower(), row['postcode'])
@@ -93,7 +94,6 @@ def main():
                 for category in propertyCategory:
                     category_stats = get_suburb_statistics(category)
                     new_row = suburb + category_stats
-                    print(new_row)   # Printing to check progress
                     # Appending new row to csv if statistics exist
                     with open(f'{path}{state.lower()}_suburb_prices.csv','a') as file:
                         writer = csv.writer(file)

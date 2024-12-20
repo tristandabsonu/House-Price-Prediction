@@ -4,6 +4,7 @@ import json
 import csv
 import time
 import pandas as pd
+from tqdm import tqdm
 
 
 HEADERS = {
@@ -64,8 +65,8 @@ def get_suburb_statistics(statistics):
 
 
 def main():
-    #'WA' finished
-    states = ['NSW','VIC','QLD','SA','ACT','NT','TAS']
+    #'NSW','VIC','QLD','SA','ACT','NT','TAS'
+    states = ['WA']
     for state in states:
         # Writing new suburb file (overwriting if it exists)
         with open(f'{path}{state.lower()}_suburb_statistics.csv', 'w', newline='') as file:
@@ -76,7 +77,7 @@ def main():
         suburbs = get_state_suburbs(state)
 
         # Iterates through each suburb
-        for index,row in suburbs.iterrows():
+        for index,row in tqdm(suburbs.iterrows(), total=suburbs.shape[0]):
             new_row = [row['locality'].lower(), row['state'].lower(),row['postcode'],row['lat'],row['long']]
             # Requesting and parsing html
             url = BASE_URL.format(row['locality'].lower().replace(' ', '-'), row['state'].lower(), row['postcode'])
