@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html >
+
+<head>
+  <meta charset="UTF-8">
+  <title>WA House Price Prediction</title>
+  <link href='https://fonts.googleapis.com/css?family=Pacifico' rel='stylesheet' type='text/css'>
+<link href='https://fonts.googleapis.com/css?family=Arimo' rel='stylesheet' type='text/css'>
+<link href='https://fonts.googleapis.com/css?family=Hind:300' rel='stylesheet' type='text/css'>
+<link href='https://fonts.googleapis.com/css?family=Open+Sans+Condensed:300' rel='stylesheet' type='text/css'>
+</head>
+
+
+<body>
+ <div class="login">
+	<h1>Western Australia House Price Prediction</h1>
+
+     <!-- Main Input For Receiving Query to our ML -->
+    <form action="{{ url_for('predict')}}"method="post">
+        <input type="text" name="streetNumber" placeholder="street number" required="required" /><br>
+        <input type="text" name="street" placeholder="street" required="required" /><br>
+        <input type="text" name="suburb" placeholder="suburb" required="required" /><br>
+        <input type="text" name="postcode" placeholder="postcode" required="required" /><br>
+        <input type="text" name="bathrooms" placeholder="bathrooms" required="required" /><br>
+        <input type="text" name="bedrooms" placeholder="bedrooms" required="required" /><br>
+        <input type="text" name="parking" placeholder="parking" required="required" /><br>
+        <input type="text" name="landArea" placeholder="land area" required="required" /><br>
+        <input type="text" name="propertyType" placeholder="type (house/unit)" required="required" /><br>
+        <!-- Dropdown for selecting features -->
+        <label>Select additional features:</label><br>
+        <input type="checkbox" id="aircon" name="features" value="air conditioning">
+        <label for="aircon">Air Conditioning</label><br>
+        
+        <input type="checkbox" id="wardrobes" name="features" value="built in wardrobes">
+        <label for="wardrobes">Built-In Wardrobes</label><br>
+        
+        <input type="checkbox" id="parking" name="features" value="secure parking">
+        <label for="parking">Secure Parking</label><br>
+        
+        <input type="checkbox" id="ensuite" name="features" value="ensuite">
+        <label for="ensuite">Ensuite</label><br>
+        
+        <input type="checkbox" id="dishwasher" name="features" value="dishwasher">
+        <label for="dishwasher">Dishwasher</label><br>
+        
+        <input type="checkbox" id="fenced" name="features" value="fully fenced">
+        <label for="fenced">Fully Fenced</label><br><br>
+
+        <button type="submit" class="btn btn-primary btn-block btn-large">Predict</button>
+    </form>
+
+   <br>
+   <br>
+  
+   
+ </div>
+ {{prediction_text}}
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.neighbors import KNeighborsRegressor, BallTree
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, MultiLabelBinarizer
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 import geopandas as gpd
 from shapely.geometry import Point
@@ -10,6 +10,11 @@ import pandas as pd
 import numpy as np
 import ast
 
+import certifi
+import geopy.geocoders
+from geopy.geocoders import Nominatim
+import ssl
+import time
 
 
 ################  Initial preprocessing  ################
@@ -132,17 +137,84 @@ class LowercaseFormatter(BaseEstimator, TransformerMixin):
 class CoordinateFiller(BaseEstimator, TransformerMixin):
     def __init__(self, coord_df):
         self.coord_df = coord_df[['suburb', 'latitude', 'longitude']]
-        
+        self.nom = None  
+
+    def setup_nominatim(self):
+        """Initializes the Nominatim geocoder with SSL context."""
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        geopy.geocoders.options.default_ssl_context = ctx
+        self.nom = Nominatim(user_agent="tristan_scrape")
+
     def fit(self, X, y=None):
+        self.setup_nominatim()
         return self
 
     def transform(self, X):
+        if self.nom is None:  # Check if the geocoder is set up
+            self.setup_nominatim()
+        X = self.nom_fill(X)
+        X = self.csv_fill(X)
+        return X
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the nominatim object from state
+        if 'nom' in state:
+            del state['nom']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.setup_nominatim()  # Reinitialize Nominatim upon unpickling
+
+    def format_address(self, house):
+        parts = []
+        # Check for street and street number, append if both are present
+        if pd.notnull(house['street']) and pd.notnull(house['streetNumber']):
+            parts.append(f'{house["streetNumber"]} {house["street"]}')
+        elif pd.notnull(house['street']):
+            parts.append(house['street'])
+        
+        # Check and append if suburb and postcode are present
+        if pd.notnull(house['suburb']):
+            parts.append(house['suburb'])
+        if pd.notnull(house['postcode']):
+            parts.append(f'{house["postcode"].astype(int)}')
+        if parts:  # if there's at least one part present, append the state
+            parts.append('Western Australia')
+        # Join the parts with a comma and return the result
+        return ', '.join(parts) if parts else 'None'
+
+    def get_coords(self, address):
+        # Searches Nominatim of the address
+        try:
+            location = self.nom.geocode(address)
+            time.sleep(1)  # Recommended rate limit
+            if location:
+                return location.latitude, location.longitude
+        except Exception as e:
+            print(f"Error geocoding address {address}: {e}")
+        return None, None
+
+    def nom_fill(self, X):
         # Creating an empty column if column doesn't exist
         if 'latitude' not in X.columns:
             X['latitude'] = np.nan
         if 'longitude' not in X.columns:
             X['longitude'] = np.nan
-            
+
+        # Getting index of data to fill
+        index = X.loc[(X['latitude'].isnull()) & (X['suburb'].notnull())].index
+        for idx in index:
+            house = X.loc[idx]
+            address = self.format_address(house)
+            latitude, longitude = self.get_coords(address)
+            # Assigning new latitude and longitude
+            X.loc[idx, 'latitude'] = latitude
+            X.loc[idx, 'longitude'] = longitude
+        return X
+
+    def csv_fill(self, X):            
         # Merge the coordinate data with the main DataFrame
         X = pd.merge(X, self.coord_df, on='suburb', how='left', suffixes=('', '_from_coord'))
         # Fill missing latitude and longitude values
@@ -322,7 +394,7 @@ class FeatureScaleTransform(BaseEstimator, TransformerMixin):
                 X[col] = X[col].apply(lambda x: x if x == 0 else np.log10(x))
         elif self.method=='sqrt':
             for col in log_cols:
-                X[col] = X[col].apply(lambda x: x if x == 0 else np.log10(x))    
+                X[col] = X[col].apply(lambda x: x if x == 0 else np.sqrt(x))    
         
         return X
 
@@ -404,7 +476,7 @@ class CustomMultiLabelBinarizer(BaseEstimator, TransformerMixin):
                 else:
                     feature_dict[feature] = 1
                     
-        feature_dict = {key: value for key, value in feature_dict.items() if value >= 1000}
+        feature_dict = {key: value for key, value in feature_dict.items() if value >= 9000}
         self.selected_features = list(feature_dict.keys())
         return self
         

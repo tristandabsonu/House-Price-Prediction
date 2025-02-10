@@ -1,5 +1,9 @@
-# ignore data files
 data/
-
-# ignore any csv files
 *.csv
+__pycache__
+.venv
+cache
+.ipynb_checkpoints
+.DS_Store
+test.py
+*.pkl
